@@ -7,13 +7,13 @@ Address Of Proxy Server')
 # Create a server socket, bind it to a port and start listening
 tcpSerSock = socket(AF_INET, SOCK_STREAM)
 # Fill in start.
-serverPort = 8888
+serverPort = 8881
 
 try: 
        tcpSerSock.bind((sys.argv[1], serverPort))
 except:
-       print("Bind failed, probably address already in use")
-
+       print("Error: Bind failed, probably address already in use")
+       sys.exit(1)
 tcpSerSock.listen(1) 
 # Fill in end.
 while 1:
@@ -39,6 +39,8 @@ while 1:
              tcpCliSock.send("HTTP/1.0 200 OK\r\n")
              tcpCliSock.send("Content-Type:text/html\r\n")
              # Fill in start.
+             for each in outputdata:
+                    tcpCliSock.send(each)
              f.close()
              # Fill in end.
              print('Read from cache')
@@ -47,7 +49,11 @@ while 1:
              if fileExist == "false":
                     # Create a socket on the proxyserver
                     c = socket(AF_INET, SOCK_STREAM) # Fill in start.# Fill in end.
-                    hostn = filename.replace("www.","",1)
+                    hostn = filename.replace("www.","",1).split("/", 1)[0]
+                     
+                    #if filename.count("/") > 1:
+                    file_from_netHost = filename.partition("/")[2]
+                    
                     print(hostn)
                     try:
                            # Connect to the socket to port 80
@@ -58,32 +64,25 @@ while 1:
                            # for the file requested by the client
                            fileobj = c.makefile('r', 0) 
                            # Instead of using send and recv, we can use makefile
-                           fileobj.write("GET "+"http://" + filename + "HTTP/1.0\n\n") 
+                           fileobj.write("GET "+"/" + file_from_netHost + " HTTP/1.0\n\n") 
                            # If this line does not work, write separate
                            # lines for GET and HOST:
                            # Read the response into buffer
                            # Fill in start
 			   buf = fileobj.read()
-                           # Fill in end.
-                           # Create a new file in the cache for the requested file.
-                           # Also send the response in the buffer to client socket
-                           # and the corresponding file in the cache
-                           tmpFile = open("./" + filename,"wb")
-                           # Fill in start.
-                           tcpCliSock.send(buf) 
-                           tmpFile.write(buf)
-                           tmpFile.close()
+                           tcpCliSock.send(buf)
+                           if "200 OK" in buf: 
+                                  # Create a new file in the cache for the requested file.
+                                  # Also send the response in the buffer to client socket
+                                  # and the corresponding file in the cache
+                                  tmpFile = open("./" + filename,"wb")
+                                  tmpFile.write(buf)
+                                  tmpFile.close()
                            fileobj.close()
                            c.close()
-                           # Fill in end.
                     except:
-                           print("Illegal request")
-             else:
-                    # HTTP response message for file not found
-                    # Fill in start.
-                    tcpCliSock.send("HTTP/1.0 404 Not Found\r\n")
-                    tcpCliSock.send("Content-Type:text/html\r\n")
-                    # Fill in end.
+                           print("Illegal request") 
+       
        # Close the client and the server sockets
        tcpCliSock.close()
        # Fill in start.
