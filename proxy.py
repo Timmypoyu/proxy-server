@@ -21,23 +21,42 @@ while 1:
        print('Ready to serve...')
        tcpCliSock, addr = tcpSerSock.accept()
        print('Received a connection from:', addr)
-       message = tcpCliSock.recv(1024).decode()# Fill in start. # Fill in end.
+       orig_message = tcpCliSock.recv(1024).decode()
+       message = orig_message
        print(message)
        # Extract the filename from the given message
        print(message.split()[1])
        filename = message.split()[1].partition("/")[2]
        print(filename)
        fileExist = "false"
-       filetouse = "/" + filename
-       print(filetouse)
+
+       # refered or not
+       if "Referer:" in orig_message:
+              for eachLine in org_message.split('\n'):
+                     if "Referer:" in eachLine:
+                            referLine = eachLine
+                            break
+              ### parse referLine 
+              referLine = referLine.rpartition("/")[2]
+              filetouse = "/" + referLine + filename  
+       
        try:
              # Check wether the file exist in the cache
              f = open(filetouse[1:], "r")
              outputdata = f.readlines()
              fileExist = "true"
+
+             #Content-Type:
+             for each in outputdata:
+                   if "Content-Type" in each:
+                         contentLine = each 
+                         break
+                   
+                   contentType = contentLine.split()[1]  
+  
              # ProxyServer finds a cache hit and generates a response message
              tcpCliSock.send("HTTP/1.0 200 OK\r\n")
-             tcpCliSock.send("Content-Type:text/html\r\n")
+             tcpCliSock.send("Content-Type:" + contentType + "\r\n")
              # Fill in start.
              for each in outputdata:
                     tcpCliSock.send(each)
@@ -50,7 +69,6 @@ while 1:
                     # Create a socket on the proxyserver
                     c = socket(AF_INET, SOCK_STREAM) # Fill in start.# Fill in end.
                     hostn = filename.replace("www.","",1).split("/", 1)[0]
-                     
                     #if filename.count("/") > 1:
                     file_from_netHost = filename.partition("/")[2]
                     
