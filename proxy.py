@@ -7,7 +7,7 @@ Address Of Proxy Server')
 # Create a server socket, bind it to a port and start listening
 tcpSerSock = socket(AF_INET, SOCK_STREAM)
 # Fill in start.
-serverPort = 8882
+serverPort = 8881
 
 try: 
        tcpSerSock.bind((sys.argv[1], serverPort))
@@ -34,9 +34,9 @@ while 1:
        # refered or not
        if "Referer" in orig_message:
               print("HI!")
-              referedFlag = "True"
+              referedFlag = "true"
 
-       if referedFlag == "True":
+       if referedFlag == "true":
               for eachLine in orig_message.split('\n'):
                      if "Referer" in eachLine:
                             referLine = eachLine
@@ -50,7 +50,6 @@ while 1:
              f = open(filename, "r")
              outputdata = f.readlines()
              fileExist = "true"
-             print(outputdata) 
              
              #Content-Type:
              for each in outputdata:
@@ -63,26 +62,24 @@ while 1:
              # ProxyServer finds a cache hit and generates a response message
              tcpCliSock.send("HTTP/1.0 200 OK\r\n")
              tcpCliSock.send("Content-Type:" + contentType + "\r\n")
-             # Fill in start.
+             
              for each in outputdata:
                     tcpCliSock.send(each)
              f.close()
-             # Fill in end.
+             
              print('Read from cache')
        # Error handling for file not found in cache
        except IOError:
              if fileExist == "false":
                     # Create a socket on the proxyserver
                     c = socket(AF_INET, SOCK_STREAM) # Fill in start.# Fill in end.
-                    
-        
+                     
                     if referedFlag == "false": 
-                           print("here1")
                            hostn = filename.replace("www.","",1).split("/", 1)[0]
-                           file_from_netHost = filename.partition("/")[2] 
+                           file_from_netHost = filename.partition("/")[2]
                     else: 
-                           hostn = referLine.replace("www.", "", 1)
-                           file_from_netHost = filename 
+                           hostn = referLine.replace("www.", "", 1).strip(' \t\r\n')
+                           file_from_netHost = filename
                     
                     print("hostn:" + hostn)
                     print("file_from_netHost:" + file_from_netHost)
@@ -93,7 +90,7 @@ while 1:
                            
                            # Create a temporary file on this socket and ask port 80
                            # for the file requested by the client
-                           fileobj = c.makefile('r', 0) 
+                           fileobj = c.makefile('rb', 0) 
                            
                            # Instead of using send and recv, we can use makefile
                            fileobj.write("GET "+"/" + file_from_netHost + " HTTP/1.0\n\n") 
@@ -102,13 +99,24 @@ while 1:
 			   buf = fileobj.read()
                            print(buf) 
                            tcpCliSock.send(buf)
-                           if "200 OK" in buf: 
+                           print(referedFlag)
+                           if "200 OK" in buf:
+                                 
+                                  print("caching...") 
+                                 
                                   # Create a new file in the cache for the requested file.
                                   # Also send the response in the buffer to client socket
                                   # and the corresponding file in the cache
-                                  tmpFile = open("./" + filename,"wb")
+
+                                  if referedFlag == "true":
+                                         tmpFile = open("./" + file_from_netHost, "wb")
+                                  else:
+                                         tmpFile = open("./" + filename, "wb")
+
                                   tmpFile.write(buf)
+                                  print("finish caching")
                                   tmpFile.close()
+
                            fileobj.close()
                            c.close()
                     except:
