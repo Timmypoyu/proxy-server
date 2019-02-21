@@ -46,9 +46,8 @@ while 1:
                            referLine = eachLine
                            break
 
-              # parse referLine 
-             referLine = referLine.rpartition("/")[2]
-             filetouse = "/" + referLine + filename  
+             # parse referLine 
+             referLine = referLine.partition("//")[2].partition("/")[2]
        
        try:
              # Check wether the file exist in the cache
@@ -91,26 +90,31 @@ while 1:
                            hostn = filename.replace("www.","",1).split("/", 1)[0]
                            file_from_netHost = filename.partition("/")[2]
                     else: 
-                           hostn = referLine.replace("www.", "", 1).strip(' \t\r\n')
-                           file_from_netHost = filename
+                           referLine = referLine.strip(' \t\r\n')
+                           print("referLine: " + referLine)
+                           hostn = referLine.replace("www.", "", 1).split("/", 1)[0] 
+                           if referLine in filename: 
+                                  file_from_netHost = filename.partition("/")[2]
+                           else:
+                                  file_from_netHost = filename 
                     
                     print("hostn:" + hostn)
                     print("file_from_netHost:" + file_from_netHost)
                     try:
                            # Connect to the socket to port 80
-                           c.connect((hostn,80))
+                           c.connect((hostn.strip(' \t\r\n'),80))
                            print("after connect")
                            
                            # Create a temporary file on this socket and ask port 80
                            # for the file requested by the client
-                           fileobj = c.makefile('r', 0) 
+                           fileobj = c.makefile('rb', 0) 
                            
                            # Instead of using send and recv, we can use makefile
-                           fileobj.write("GET "+"/" + file_from_netHost + " HTTP/1.0\n\n") 
+                           fileobj.write("GET "+"/" + file_from_netHost.strip(' \t\r\n') + " HTTP/1.0\n\n") 
                            
                            # Read the response into buffer
                            buf = fileobj.readlines()
-                           print(buf)
+                           #print(buf)
                            for each in buf:  
                                   tcpCliSock.send(each)
                            print(referedFlag)
@@ -152,5 +156,6 @@ while 1:
        
        # Close the client and the server sockets
        tcpCliSock.close()
+       print("SESSION STOPPED")
        # Fill in start.
        # Fill in end.
