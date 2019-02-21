@@ -55,19 +55,27 @@ while 1:
              f = open(filename, "r")
              outputdata = f.readlines()
              fileExist = "true"
+             local_flag = "false"
+  
+             if "HTTP/" not in outputdata[0]: 
+	            local_flag = "true" 
              
-             #Content-Type:
-             for each in outputdata:
-                   if "content-type:" in each.lower():
-                         contentLine = each 
-                         break
-                   
-             contentType = contentLine.split()[1].partition(";")[0]  
+             if local_flag == "false":
+                     #Content-Type:
+		     for each in outputdata:
+			    if "content-type:" in each.lower():
+				 contentLine = each 
+				 break
+	   
+	             contentType = contentLine.split()[1].partition(";")[0]  
   
              # ProxyServer finds a cache hit and generates a response message
              tcpCliSock.send("HTTP/1.0 200 OK\r\n")
-             tcpCliSock.send("Content-Type:" + contentType + "\r\n")
-             
+             if local_flag == "false": 
+                    tcpCliSock.send("Content-Type:" + contentType + "\r\n")
+             else:
+                    tcpCliSock.send("Content-Type: text/html\r\n")
+
              for each in outputdata:
                     tcpCliSock.send(each)
              f.close()
@@ -95,27 +103,31 @@ while 1:
                            
                            # Create a temporary file on this socket and ask port 80
                            # for the file requested by the client
-                           fileobj = c.makefile('rb', 0) 
+                           fileobj = c.makefile('r', 0) 
                            
                            # Instead of using send and recv, we can use makefile
                            fileobj.write("GET "+"/" + file_from_netHost + " HTTP/1.0\n\n") 
                            
                            # Read the response into buffer
-			   buf = fileobj.read()
-                           print(buf) 
-                           tcpCliSock.send(buf)
+                           buf = fileobj.readlines()
+                           print(buf)
+                           for each in buf:  
+                                  tcpCliSock.send(each)
                            print(referedFlag)
 		          
                            # make directory and Caching
                            """
-                           directory =          
-  
+                           file_path = ("www." + hostn + "/" + file_from_netHost)        
+                           directory = ("www." + hostn + "/" + file_from_netHost).rpartition('/')[0]         
+
+               
                            try:
-                                  os.makedirs()
+                                  os.makedirs(directory)
                            except OSError as e:
                                   if e.errno != errno.EEXIST:
                                         raise	  
-			   """
+                           """
+
                            print("caching...") 
 			 
 			   # Create a new file in the cache for the requested file.
@@ -123,11 +135,13 @@ while 1:
 			   # and the corresponding file in the cache
 
 			   if referedFlag == "true":
-				  tmpFile = open("./" + file_from_netHost, "wb")
+				  tmpFile = open("./" +  file_from_netHost, "wb")
 			   else:
 				  tmpFile = open("./" + filename, "wb")
 
-			   tmpFile.write(buf)
+			   for each in buf: 
+                                  tmpFile.write(each)
+
 			   print("finish caching")
 			   tmpFile.close()
 
