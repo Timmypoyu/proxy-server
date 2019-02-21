@@ -1,12 +1,12 @@
 from socket import *
-import sys
+import sys, os, errno
 if len(sys.argv) <= 1:
        print('Usage : "python ProxyServer.py server_ip"\n[server_ip : It is the IP \
 Address Of Proxy Server')
        sys.exit(2)
+
 # Create a server socket, bind it to a port and start listening
 tcpSerSock = socket(AF_INET, SOCK_STREAM)
-# Fill in start.
 serverPort = 8881
 
 try: 
@@ -14,16 +14,20 @@ try:
 except:
        print("Error: Bind failed, probably address already in use")
        sys.exit(1)
+
 tcpSerSock.listen(1) 
-# Fill in end.
+
 while 1:
+
        # Start receiving data from the client
        print('Ready to serve...')
        tcpCliSock, addr = tcpSerSock.accept()
        print('Received a connection from:', addr)
-       orig_message = tcpCliSock.recv(1024).decode()
+       orig_message = tcpCliSock.recv(1024).decode() 
+       print(orig_message)
        message = orig_message
        print(message)
+
        # Extract the filename from the given message
        print(message.split()[1])
        filename = message.split()[1].partition("/")[2]
@@ -32,18 +36,19 @@ while 1:
        referedFlag = "false"
 
        # refered or not
-       if "Referer" in orig_message:
-              print("HI!")
+       if "referer" in orig_message.lower():
+              print("There is a referer")
               referedFlag = "true"
 
        if referedFlag == "true":
-              for eachLine in orig_message.split('\n'):
-                     if "Referer" in eachLine:
-                            referLine = eachLine
-                            break
-              ### parse referLine 
-              referLine = referLine.rpartition("/")[2]
-              filetouse = "/" + referLine + filename  
+             for eachLine in orig_message.split('\n'):
+                    if "referer" in eachLine.lower():
+                           referLine = eachLine
+                           break
+
+              # parse referLine 
+             referLine = referLine.rpartition("/")[2]
+             filetouse = "/" + referLine + filename  
        
        try:
              # Check wether the file exist in the cache
@@ -53,7 +58,7 @@ while 1:
              
              #Content-Type:
              for each in outputdata:
-                   if "Content-Type:" in each:
+                   if "content-type:" in each.lower():
                          contentLine = each 
                          break
                    
@@ -100,22 +105,31 @@ while 1:
                            print(buf) 
                            tcpCliSock.send(buf)
                            print(referedFlag)
-                           if "200 OK" in buf:
-                                 
-                                  print("caching...") 
-                                 
-                                  # Create a new file in the cache for the requested file.
-                                  # Also send the response in the buffer to client socket
-                                  # and the corresponding file in the cache
+		          
+                           # make directory and Caching
+                           """
+                           directory =          
+  
+                           try:
+                                  os.makedirs()
+                           except OSError as e:
+                                  if e.errno != errno.EEXIST:
+                                        raise	  
+			   """
+                           print("caching...") 
+			 
+			   # Create a new file in the cache for the requested file.
+			   # Also send the response in the buffer to client socket
+			   # and the corresponding file in the cache
 
-                                  if referedFlag == "true":
-                                         tmpFile = open("./" + file_from_netHost, "wb")
-                                  else:
-                                         tmpFile = open("./" + filename, "wb")
+			   if referedFlag == "true":
+				  tmpFile = open("./" + file_from_netHost, "wb")
+			   else:
+				  tmpFile = open("./" + filename, "wb")
 
-                                  tmpFile.write(buf)
-                                  print("finish caching")
-                                  tmpFile.close()
+			   tmpFile.write(buf)
+			   print("finish caching")
+			   tmpFile.close()
 
                            fileobj.close()
                            c.close()
