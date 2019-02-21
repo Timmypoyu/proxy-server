@@ -7,7 +7,7 @@ Address Of Proxy Server')
 # Create a server socket, bind it to a port and start listening
 tcpSerSock = socket(AF_INET, SOCK_STREAM)
 # Fill in start.
-serverPort = 8881
+serverPort = 8882
 
 try: 
        tcpSerSock.bind((sys.argv[1], serverPort))
@@ -29,11 +29,16 @@ while 1:
        filename = message.split()[1].partition("/")[2]
        print(filename)
        fileExist = "false"
+       referedFlag = "false"
 
        # refered or not
-       if "Referer:" in orig_message:
-              for eachLine in org_message.split('\n'):
-                     if "Referer:" in eachLine:
+       if "Referer" in orig_message:
+              print("HI!")
+              referedFlag = "True"
+
+       if referedFlag == "True":
+              for eachLine in orig_message.split('\n'):
+                     if "Referer" in eachLine:
                             referLine = eachLine
                             break
               ### parse referLine 
@@ -42,17 +47,18 @@ while 1:
        
        try:
              # Check wether the file exist in the cache
-             f = open(filetouse[1:], "r")
+             f = open(filename, "r")
              outputdata = f.readlines()
              fileExist = "true"
-
+             print(outputdata) 
+             
              #Content-Type:
              for each in outputdata:
-                   if "Content-Type" in each:
+                   if "Content-Type:" in each:
                          contentLine = each 
                          break
                    
-                   contentType = contentLine.split()[1]  
+             contentType = contentLine.split()[1].partition(";")[0]  
   
              # ProxyServer finds a cache hit and generates a response message
              tcpCliSock.send("HTTP/1.0 200 OK\r\n")
@@ -68,26 +74,33 @@ while 1:
              if fileExist == "false":
                     # Create a socket on the proxyserver
                     c = socket(AF_INET, SOCK_STREAM) # Fill in start.# Fill in end.
-                    hostn = filename.replace("www.","",1).split("/", 1)[0]
-                    #if filename.count("/") > 1:
-                    file_from_netHost = filename.partition("/")[2]
                     
-                    print(hostn)
+        
+                    if referedFlag == "false": 
+                           print("here1")
+                           hostn = filename.replace("www.","",1).split("/", 1)[0]
+                           file_from_netHost = filename.partition("/")[2] 
+                    else: 
+                           hostn = referLine.replace("www.", "", 1)
+                           file_from_netHost = filename 
+                    
+                    print("hostn:" + hostn)
+                    print("file_from_netHost:" + file_from_netHost)
                     try:
                            # Connect to the socket to port 80
-                           # Fill in start.
                            c.connect((hostn,80))
-                           # Fill in end.
+                           print("after connect")
+                           
                            # Create a temporary file on this socket and ask port 80
                            # for the file requested by the client
                            fileobj = c.makefile('r', 0) 
+                           
                            # Instead of using send and recv, we can use makefile
                            fileobj.write("GET "+"/" + file_from_netHost + " HTTP/1.0\n\n") 
-                           # If this line does not work, write separate
-                           # lines for GET and HOST:
+                           
                            # Read the response into buffer
-                           # Fill in start
 			   buf = fileobj.read()
+                           print(buf) 
                            tcpCliSock.send(buf)
                            if "200 OK" in buf: 
                                   # Create a new file in the cache for the requested file.
