@@ -23,7 +23,14 @@ while 1:
        print('Ready to serve...')
        tcpCliSock, addr = tcpSerSock.accept()
        print('Received a connection from:', addr)
-       orig_message = tcpCliSock.recv(1024).decode() 
+       tcpCliSock.settimeout(2)
+      
+       try: 
+              orig_message = tcpCliSock.recv(1024).decode()
+       except:
+              tcpCliSock.close()
+              continue 
+      
        print(orig_message)
        message = orig_message
        print(message)
