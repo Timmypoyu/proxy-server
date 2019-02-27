@@ -1,5 +1,8 @@
 from socket import *
 import sys, os, errno
+
+
+
 if len(sys.argv) <= 1:
        print('Usage : "python ProxyServer.py server_ip"\n[server_ip : It is the IP \
 Address Of Proxy Server')
@@ -7,16 +10,19 @@ Address Of Proxy Server')
 
 # Create a server socket, bind it to a port and start listening
 tcpSerSock = socket(AF_INET, SOCK_STREAM)
-serverPort = 8881
+serverPort = int(sys.argv[2])
 
+# Error check bind()
 try: 
        tcpSerSock.bind((sys.argv[1], serverPort))
 except:
        print("Error: Bind failed, probably address already in use")
        sys.exit(1)
 
-tcpSerSock.listen(1) 
-
+tcpSerSock.listen(1)
+# Data structure to store cache date (website as key, time as value)
+cache_dict = {} 
+ 
 while 1:
 
        # Start receiving data from the client
@@ -24,21 +30,23 @@ while 1:
        tcpCliSock, addr = tcpSerSock.accept()
        print('Received a connection from:', addr)
        tcpCliSock.settimeout(2)
-      
+
+       # recv() to non-blocking      
        try: 
               orig_message = tcpCliSock.recv(1024).decode()
-       except:
+       except timeout:
+              print("recv() timed out, reconnecting...")
               tcpCliSock.close()
               continue 
       
-       print(orig_message)
+       #print(orig_message)
        message = orig_message
-       print(message)
+       #print(message)
 
        # Extract the filename from the given message
-       print(message.split()[1])
+       #print(message.split()[1])
        filename = message.split()[1].partition("/")[2]
-       print(filename)
+       #print(filename)
        fileExist = "false"
        referedFlag = "false"
 
@@ -48,17 +56,34 @@ while 1:
               referedFlag = "true"
 
        if referedFlag == "true":
-             for eachLine in orig_message.split('\n'):
-                    if "referer" in eachLine.lower():
-                           referLine = eachLine
-                           break
+              for eachLine in orig_message.split('\n'):
+                     if "referer" in eachLine.lower():
+                            referLine = eachLine
+                            break
 
-             # parse referLine 
-             referLine = referLine.partition("//")[2].partition("/")[2]
-       
+              # parse referLine 
+              referLine = referLine.partition("//")[2].partition("/")[2]
+              referLine = referLine.strip(' \t\r\n')
+              #print("referLine: " + referLine)
+              hostn = referLine.replace("www.", "", 1).split("/", 1)[0].strip(' \t\r\n') 
+              if referLine in filename: 
+                     file_from_netHost = filename.partition("/")[2].strip(' \t\r\n')
+              else:
+                     file_from_netHost = filename.strip(' \t\r\n')
+                     file_path = "www." + hostn + "/" + file_from_netHost
+                     directory = file_path.rpartition('/')[0]
+
+       else:
+              hostn = filename.replace("www.","",1).split("/", 1)[0].strip(' \t\r\n')
+              file_from_netHost = filename.partition("/")[2].strip(' \t\r\n')
+ 
        try:
              # Check wether the file exist in the cache
-             f = open(filename, "r")
+             if referedFlag == "true":
+                    f = open(file_path, "r")
+             else:
+                    f = open(filename, "r")
+
              outputdata = f.readlines()
              fileExist = "true"
              local_flag = "false"
@@ -92,24 +117,12 @@ while 1:
              if fileExist == "false":
                     # Create a socket on the proxyserver
                     c = socket(AF_INET, SOCK_STREAM) # Fill in start.# Fill in end.
-                     
-                    if referedFlag == "false": 
-                           hostn = filename.replace("www.","",1).split("/", 1)[0]
-                           file_from_netHost = filename.partition("/")[2]
-                    else: 
-                           referLine = referLine.strip(' \t\r\n')
-                           print("referLine: " + referLine)
-                           hostn = referLine.replace("www.", "", 1).split("/", 1)[0] 
-                           if referLine in filename: 
-                                  file_from_netHost = filename.partition("/")[2]
-                           else:
-                                  file_from_netHost = filename 
-                    
+                                       
                     print("hostn:" + hostn)
                     print("file_from_netHost:" + file_from_netHost)
                     try:
                            # Connect to the socket to port 80
-                           c.connect((hostn.strip(' \t\r\n'),80))
+                           c.connect((hostn, 80))
                            print("after connect")
                            
                            # Create a temporary file on this socket and ask port 80
@@ -117,44 +130,50 @@ while 1:
                            fileobj = c.makefile('rb', 0) 
                            
                            # Instead of using send and recv, we can use makefile
-                           fileobj.write("GET "+"/" + file_from_netHost.strip(' \t\r\n') + " HTTP/1.0\n\n") 
+                           fileobj.write("GET "+"/" + file_from_netHost + " HTTP/1.0\n\n") 
                            
                            # Read the response into buffer
                            buf = fileobj.readlines()
                            #print(buf)
                            for each in buf:  
                                   tcpCliSock.send(each)
-                           print(referedFlag)
-		          
-                           # make directory and Caching
-                           """
-                           file_path = ("www." + hostn + "/" + file_from_netHost)        
-                           directory = ("www." + hostn + "/" + file_from_netHost).rpartition('/')[0]         
+                                #  print(each)
 
-               
-                           try:
-                                  os.makedirs(directory)
-                           except OSError as e:
-                                  if e.errno != errno.EEXIST:
-                                        raise	  
-                           """
+                           #print(referedFlag)
+		                                    
 
-                           print("caching...") 
-			 
-			   # Create a new file in the cache for the requested file.
-			   # Also send the response in the buffer to client socket
-			   # and the corresponding file in the cache
+                           if "200 OK" in buf[0]: 
+			          print("caching...")
+                                  
+                                  # Parse Last-Modified Date:
+                                  for each in buf:
+                                         if "Last-Modifed" in each:
+                                               date = each.split(' ', 1)[1].strip('\t\r\n')
+                                               break 
+				 
+				  # Create a new file in the cache for the requested file.
+				  if referedFlag == "true":
 
-			   if referedFlag == "true":
-				  tmpFile = open("./" +  file_from_netHost, "wb")
-			   else:
-				  tmpFile = open("./" + filename, "wb")
+                                         try:
+                                                print("making directory")
+                                                print(directory)
+                                                os.makedirs(directory)
+				         except OSError as e:
+		                                if e.errno != errno.EEXIST:
+			                               raise
+                                         
+                                         cache_dict[file_path] = date
+					 tmpFile = open(file_path, "wb")
+                                         print("create file: " + file_path)
+				  else:
+					 tmpFile = open("./" + filename, "wb")
+                                         print("create file: " + "./" + filename)
 
-			   for each in buf: 
-                                  tmpFile.write(each)
+				  for each in buf: 
+					 tmpFile.write(each)
 
-			   print("finish caching")
-			   tmpFile.close()
+				  print("finish caching")
+				  tmpFile.close()
 
                            fileobj.close()
                            c.close()
