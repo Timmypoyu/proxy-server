@@ -99,14 +99,14 @@ while 1:
              if file_from_netHost != "":
                     # Get Conditional
                     print("HIHIHIH")
+                    print(file_path)
+                    print(cache_dict)
                     if file_path not in cache_dict:
                            print("conditional throw exception")
                            raise Exception  
                     print("GET "+"/" + file_from_netHost + " HTTP/1.0\n" \
-                                 + "Host: " + hostn + "\n"  + \
                                  + "If-Modified-Since: " + cache_dict[file_path] + "\n\n" )
                     fileobj.write("GET "+"/" + file_from_netHost + " HTTP/1.0\n" \
-                                 + "Host: " + hostn + "\n"  + \
                                  + "If-Modified-Since: " + cache_dict[file_path] + "\n\n" ) 
                     
                     buf = fileobj.read()
@@ -119,13 +119,14 @@ while 1:
              else:
                     # Get Conditional
                     print("BYEBYEBYE") 
+                    print(filename)
+                    print(cache_dict)
                     if filename not in cache_dict:
                            raise Exception  
                     fileobj.write("GET "+"/" + file_from_netHost + " HTTP/1.0\n" \
-                                 + "Host: " + hostn + "\n"  + \
                                  + "If-Modified-Since: " + cache_dict[filename] + "\n\n" ) 
                     buf = fileobj.read()
-
+                    print(buf)
                     if "304 Not Modified" not in buf:
                            raise Exception 
                            
