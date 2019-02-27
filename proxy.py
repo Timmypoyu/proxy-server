@@ -45,10 +45,17 @@ while 1:
 
        # Extract the filename from the given message
        #print(message.split()[1])
-       filename = message.split()[1].partition("/")[2]
-       #print(filename)
+       print(message)
+       filename = message.split()[1].partition("/")[2].strip(' \t\n\r')
+
+       # Appends index.html if request ends with "/"
+       if filename.endswith("/"):
+              filename = filename + "index.html"
+
+       print("filename:" + filename)
        fileExist = "false"
        referedFlag = "false"
+       modifiedFlag = "false" 
 
        # refered or not
        if "referer" in orig_message.lower():
@@ -66,28 +73,71 @@ while 1:
               referLine = referLine.strip(' \t\r\n')
               #print("referLine: " + referLine)
               hostn = referLine.replace("www.", "", 1).split("/", 1)[0].strip(' \t\r\n') 
+              print("referLine: " + referLine)
               if referLine in filename: 
                      file_from_netHost = filename.partition("/")[2].strip(' \t\r\n')
+                     print("refer in filename: " + file_from_netHost) 
               else:
+                     print("hi")
                      file_from_netHost = filename.strip(' \t\r\n')
-                     file_path = "www." + hostn + "/" + file_from_netHost
-                     directory = file_path.rpartition('/')[0]
-
+                   
        else:
               hostn = filename.replace("www.","",1).split("/", 1)[0].strip(' \t\r\n')
-              file_from_netHost = filename.partition("/")[2].strip(' \t\r\n')
+              file_from_netHost = filename.partition("/")[2].strip(' \t\r\n') 
  
+       # Parse out file_path and directory       
+       file_path = hostn + "/" + file_from_netHost
+       print(file_path)
+       directory = file_path.rpartition('/')[0]
+
        try:
+             getConditional = socket(AF_INET, SOCK_STREAM)                                       
+             getConditional.connect((hostn, 80))
+             fileobj = getConditional.makefile('rb', 0) 
+
              # Check wether the file exist in the cache
-             if referedFlag == "true":
-                    f = open(file_path, "r")
+             if file_from_netHost != "":
+                    # Get Conditional
+                    print("HIHIHIH")
+                    if file_path not in cache_dict:
+                           print("conditional throw exception")
+                           raise Exception  
+                    print("GET "+"/" + file_from_netHost + " HTTP/1.0\n" \
+                                 + "Host: " + hostn + "\n"  + \
+                                 + "If-Modified-Since: " + cache_dict[file_path] + "\n\n" )
+                    fileobj.write("GET "+"/" + file_from_netHost + " HTTP/1.0\n" \
+                                 + "Host: " + hostn + "\n"  + \
+                                 + "If-Modified-Since: " + cache_dict[file_path] + "\n\n" ) 
+                    
+                    buf = fileobj.read()
+                    print(buf)
+                    if "304 Not Modified" not in buf:
+                           print("HIHIHIH@@@@")
+                           raise Exception 
+                    
+                    openFile = file_path
              else:
-                    f = open(filename, "r")
+                    # Get Conditional
+                    print("BYEBYEBYE") 
+                    if filename not in cache_dict:
+                           raise Exception  
+                    fileobj.write("GET "+"/" + file_from_netHost + " HTTP/1.0\n" \
+                                 + "Host: " + hostn + "\n"  + \
+                                 + "If-Modified-Since: " + cache_dict[filename] + "\n\n" ) 
+                    buf = fileobj.read()
+
+                    if "304 Not Modified" not in buf:
+                           raise Exception 
+                           
+                    openFile = filename
+
+             f = open(openFile, "r")
 
              outputdata = f.readlines()
              fileExist = "true"
              local_flag = "false"
   
+             # if this is a local flag 
              if "HTTP/" not in outputdata[0]: 
 	            local_flag = "true" 
              
@@ -101,19 +151,23 @@ while 1:
 	             contentType = contentLine.split()[1].partition(";")[0]  
   
              # ProxyServer finds a cache hit and generates a response message
-             tcpCliSock.send("HTTP/1.0 200 OK\r\n")
-             if local_flag == "false": 
-                    tcpCliSock.send("Content-Type:" + contentType + "\r\n")
+             # tcpCliSock.send("HTTP/1.0 200 OK\r\n")
+             
+	     if local_flag == "false": 
+                    for each in outputdata:
+                           tcpCliSock.send(each)
              else:
+                    #if in outputdata[0]
+                    tcpCliSock.send("HTTP/1.0 200 OK\r\n")
                     tcpCliSock.send("Content-Type: text/html\r\n")
+                    for each in outputdata:
+                           tcpCliSock.send(each)
 
-             for each in outputdata:
-                    tcpCliSock.send(each)
              f.close()
              
              print('Read from cache')
        # Error handling for file not found in cache
-       except IOError:
+       except (IOError, Exception):
              if fileExist == "false":
                     # Create a socket on the proxyserver
                     c = socket(AF_INET, SOCK_STREAM) # Fill in start.# Fill in end.
@@ -134,54 +188,80 @@ while 1:
                            
                            # Read the response into buffer
                            buf = fileobj.readlines()
+                           fullBuf = fileobj.read()
                            #print(buf)
+                           
                            for each in buf:  
                                   tcpCliSock.send(each)
-                                #  print(each)
+                             #     print(each)
 
                            #print(referedFlag)
-		                                    
+		           #for each in buf:
+                           #      print(each)                    
 
-                           if "200 OK" in buf[0]: 
-			          print("caching...")
-                                  
-                                  # Parse Last-Modified Date:
+			   print("caching...")
+			  
+			   # Parse Last-Modified Date:
+		           if "Last-Modified" in fullBuf:
+		                  for each in buf:
+                                         if "Last-Modified" in each: 
+                                                date = each.split(' ', 1)[1].strip('\t\r\n')
+				                break
+                           else:
                                   for each in buf:
-                                         if "Last-Modifed" in each:
-                                               date = each.split(' ', 1)[1].strip('\t\r\n')
-                                               break 
-				 
-				  # Create a new file in the cache for the requested file.
-				  if referedFlag == "true":
+                                         if "Date" in each:
+                                                date = each.split(' ', 1)[1].strip('\t\r\n')
+                                                break
+ 
+                           """
+                           # makes directory 			
+                  	   try:
+			          print("making directory")
+			          print(directory)
+			          os.makedirs(directory)
+			   except OSError as e:
+			          if e.errno != errno.EEXIST:
+			                 raise
+                           """
+			   # Create a new file in the cache for the requested file.
+			   if file_from_netHost != "":
+			          
+                                  # makes directory 			
+                  	          try:
+			                 print("making directory")
+			                 print(directory)
+			                 os.makedirs(directory)
+			          except OSError as e:
+			                 if e.errno != errno.EEXIST:
+			                       raise
+                                  
+                       	          print("Directory created") 
+				  print("create file: " + file_path)
+				  print(date)
+				  cache_dict[file_path] = date
+				  print("create file: " + file_path)
+				  tmpFile = open(file_path, "wb")
+			   else:  
+                                  print("KIKIKI")
+                                  print(date)
+                                  cache_dict[filename] = date
+                                  print("AFTER")
+				  tmpFile = open("./" + filename, "wb")
+				  print("create file: " + "./" + filename)
 
-                                         try:
-                                                print("making directory")
-                                                print(directory)
-                                                os.makedirs(directory)
-				         except OSError as e:
-		                                if e.errno != errno.EEXIST:
-			                               raise
-                                         
-                                         cache_dict[file_path] = date
-					 tmpFile = open(file_path, "wb")
-                                         print("create file: " + file_path)
-				  else:
-					 tmpFile = open("./" + filename, "wb")
-                                         print("create file: " + "./" + filename)
+			   for each in buf: 
+				  tmpFile.write(each)
 
-				  for each in buf: 
-					 tmpFile.write(each)
-
-				  print("finish caching")
-				  tmpFile.close()
+			   print("finish caching")
+			   tmpFile.close()
 
                            fileobj.close()
                            c.close()
                     except:
-                           print("Illegal request") 
-       
+                           print("Illegal request")
+                         #  tcpCliSock.send("HTTP/1.0 400 Bad Request\r\n")
+
        # Close the client and the server sockets
+       print(cache_dict)
        tcpCliSock.close()
        print("SESSION STOPPED")
-       # Fill in start.
-       # Fill in end.
