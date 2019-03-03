@@ -211,19 +211,9 @@ while 1:
                            else:
                                   for each in buf:
                                          if "Date" in each:
-                                                date = each.split(' ', 1)[1].strip('\t\r\n')
+                                                date = each.split(' ', 1)[1].strip('\t\r\n') 
                                                 break
- 
-                           """
-                           # makes directory 			
-                  	   try:
-			          print("making directory")
-			          print(directory)
-			          os.makedirs(directory)
-			   except OSError as e:
-			          if e.errno != errno.EEXIST:
-			                 raise
-                           """
+
 			   # Create a new file in the cache for the requested file.
 			   if file_from_netHost != "":
 			          
