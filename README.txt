@@ -3,7 +3,7 @@ UNI: pw2440
 Computer Network 
 -------------------------------------------
 Command Line: python2.7 proxy_server.py [ip-address(localhost)] [Port #]
-
+Testing websites: www.google.com, www.columbia.edu/~pw2440
 Part 1:
 This part work sa the instruction intended. 
 A simple proxy server with added functionality:
@@ -13,8 +13,6 @@ A simple proxy server with added functionality:
     The program differentiates between an intial browser http request and 
     subsequent referred http requests (such as, images and favicon.ico).
 (3) Sending the http response line by line, instead for a entire chunk 
-
-
 
 Part 2:
 Error handling:
